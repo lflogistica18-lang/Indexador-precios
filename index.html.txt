@@ -1,0 +1,699 @@
+<!-- Ubicación: Raíz/index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indexador de Precios | Dashboard Financiero</title>
+    
+    <!-- Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons: FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- jsPDF & AutoTable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6', // Teal
+                            600: '#0d9488',
+                            900: '#134e4a',
+                        },
+                        dark: {
+                            bg: '#0f172a',
+                            card: '#1e293b',
+                            input: '#334155'
+                        }
+                    },
+                    boxShadow: {
+                        'neon': '0 0 10px rgba(20, 184, 166, 0.5)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+            background-attachment: fixed;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <!-- Navbar / Header -->
+    <header class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-brand-500 to-blue-600 flex items-center justify-center shadow-neon">
+                <i class="fa-solid fa-chart-line text-white text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-white">Indexador Pro</h1>
+                <p class="text-sm text-slate-400">Sistema de Ajuste por Inflación & Rentabilidad</p>
+            </div>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="app.handlers.resetData()" class="px-4 py-2 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-sm font-medium transition-colors border border-white/5">
+                <i class="fa-solid fa-trash-arrow-up mr-2"></i>Reset
+            </button>
+            <button onclick="app.handlers.exportPDF()" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold shadow-lg shadow-brand-500/20 transition-all transform hover:scale-105">
+                <i class="fa-solid fa-file-pdf mr-2"></i>Exportar Informe
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Dashboard Top: KPIs & Settings -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Inflation Dashboard (Left) -->
+            <div class="lg:col-span-8 glass-panel rounded-2xl p-6 relative overflow-hidden group">
+                <div class="flex justify-between items-start mb-6">
+                    <h2 class="text-lg font-semibold text-brand-100"><i class="fa-solid fa-percent mr-2 text-brand-500"></i>Dashboard de Inflación</h2>
+                    <span id="data-status-badge" class="px-2 py-1 rounded text-xs font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Conectado API</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- KPI 1 -->
+                    <div class="bg-dark-card/50 p-4 rounded-xl border border-white/5">
+                        <p class="text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">Acumulada Anual</p>
+                        <p class="text-3xl font-bold text-white" id="kpi-annual">0.00%</p>
+                        <p class="text-xs text-slate-500 mt-1">Últimos 12 meses</p>
+                    </div>
+                    <!-- KPI 2 -->
+                    <div class="bg-dark-card/50 p-4 rounded-xl border border-white/5">
+                        <p class="text-slate-400 text-xs uppercase font-bold tracking-wider mb-1">Prom. Trimestral</p>
+                        <p class="text-3xl font-bold text-white" id="kpi-quarterly">0.00%</p>
+                        <p class="text-xs text-brand-400 mt-1">Tendencia Reciente</p>
+                    </div>
+                    <!-- KPI 3 (Period Selection Result) -->
+                    <div class="bg-gradient-to-br from-brand-900/40 to-slate-800/40 p-4 rounded-xl border border-brand-500/30">
+                        <p class="text-brand-200 text-xs uppercase font-bold tracking-wider mb-1">Ajuste Aplicable</p>
+                        <p class="text-3xl font-bold text-brand-400" id="kpi-custom-period">0.00%</p>
+                        <p class="text-xs text-brand-200/50 mt-1">Período Seleccionado</p>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <div class="bg-dark-input/30 p-3 rounded-lg border border-white/5">
+                        <label class="block text-xs font-medium text-slate-400 mb-2">Período de Referencia</label>
+                        <div class="flex gap-2">
+                             <select id="start-month" class="w-full bg-dark-bg border border-slate-600 text-white text-sm rounded focus:ring-brand-500 focus:border-brand-500 p-2">
+                                <!-- Options populated by JS -->
+                            </select>
+                            <span class="text-slate-500 self-center">➔</span>
+                            <select id="end-month" class="w-full bg-dark-bg border border-slate-600 text-white text-sm rounded focus:ring-brand-500 focus:border-brand-500 p-2">
+                                <!-- Options populated by JS -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <button onclick="app.ui.toggleHistory()" class="text-sm text-slate-400 hover:text-white underline decoration-slate-600 underline-offset-4 transition-colors">
+                            <i class="fa-solid fa-clock-rotate-left mr-1"></i> Ver/Ocultar Historial (6 meses)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- History Table (Collapsible) -->
+                <div id="history-container" class="hidden mt-6 overflow-hidden transition-all duration-300">
+                    <div class="overflow-x-auto rounded-lg border border-white/10">
+                        <table class="w-full text-sm text-left text-slate-300">
+                            <thead class="text-xs text-slate-400 uppercase bg-slate-800/50">
+                                <tr>
+                                    <th class="px-4 py-3">Mes</th>
+                                    <th class="px-4 py-3 text-right">Índice IPC (%)</th>
+                                    <th class="px-4 py-3 text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body" class="divide-y divide-slate-700">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profitability & Form Settings (Right) -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- Profitability Indicator -->
+                <div class="glass-panel rounded-2xl p-6 border-l-4 border-l-slate-700" id="profit-card">
+                    <h3 class="text-base font-semibold text-white mb-4">Análisis de Rentabilidad</h3>
+                    
+                    <div class="mb-4">
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Incremento de Costos Operativos (%)</label>
+                        <div class="relative">
+                            <input type="number" id="cost-input" value="0" step="0.1" 
+                                class="block w-full p-3 pl-4 pr-10 text-sm bg-dark-input border border-slate-600 rounded-lg focus:ring-brand-500 focus:border-brand-500 text-white placeholder-slate-400 transition-shadow"
+                                placeholder="0.00">
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                <i class="fa-solid fa-percent text-slate-500"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="profit-alert" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-start role='alert'">
+                        <i class="fa-solid fa-triangle-exclamation text-red-400 mt-0.5 mr-2"></i>
+                        <div>
+                            <span class="block text-sm font-medium text-red-300">Alerta de Margen</span>
+                            <span class="block text-xs text-red-400/80">Tus costos superan al ajuste por inflación.</span>
+                        </div>
+                    </div>
+                     <div id="profit-success" class="hidden bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 items-start">
+                        <i class="fa-solid fa-check-circle text-emerald-400 mt-0.5 mr-2"></i>
+                        <div>
+                            <span class="block text-sm font-medium text-emerald-300">Margen Saludable</span>
+                            <span class="block text-xs text-emerald-400/80">El ajuste cubre tus costos operativos.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add Branch Form -->
+                <div class="glass-panel rounded-2xl p-6">
+                    <h3 class="text-base font-semibold text-white mb-4">Nueva Sucursal</h3>
+                    <form id="branch-form" class="space-y-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Nombre</label>
+                            <input type="text" id="branch-name" required placeholder="Ej: Sucursal Centro" 
+                                class="w-full bg-dark-input border border-slate-600 rounded p-2 text-sm text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Importe Base Actual ($)</label>
+                            <input type="number" id="branch-amount" required step="0.01" placeholder="0.00" 
+                                class="w-full bg-dark-input border border-slate-600 rounded p-2 text-sm text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                        </div>
+                        <button type="submit" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm flex justify-center items-center">
+                            <i class="fa-solid fa-plus mr-2"></i> Agregar Sucursal
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Branches List -->
+        <div class="glass-panel rounded-2xl p-6">
+            <h2 class="text-xl font-bold text-white mb-6 flex items-center">
+                <i class="fa-solid fa-building-circle-arrow-right mr-3 text-brand-500"></i>
+                Desglose por Sucursal
+            </h2>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-white/10">
+                            <th class="pb-3 pl-2">Sucursal</th>
+                            <th class="pb-3 text-right">Importe Actual</th>
+                            <th class="pb-3 text-right text-brand-400">Ajuste (%)</th>
+                            <th class="pb-3 text-right font-bold text-white">Nuevo Importe</th>
+                            <th class="pb-3 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="branches-list-body" class="text-sm divide-y divide-white/5">
+                        <!-- Branches populated by JS -->
+                    </tbody>
+                    <tfoot class="bg-slate-800/30 font-bold text-white">
+                        <tr>
+                            <td class="py-4 pl-2 text-brand-200">TOTAL CONSOLIDADO</td>
+                            <td class="py-4 text-right" id="total-current">$0.00</td>
+                            <td class="py-4 text-right text-slate-500">-</td>
+                            <td class="py-4 text-right text-brand-400 text-lg" id="total-new">$0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <div id="empty-state" class="text-center py-12 text-slate-500 hidden">
+                <i class="fa-solid fa-shop text-4xl mb-3 opacity-20"></i>
+                <p>No hay sucursales cargadas.</p>
+            </div>
+        </div>
+        
+        <!-- Validity Footer -->
+        <div class="text-center p-4">
+            <p class="text-slate-500 text-sm" id="validity-legend"></p>
+        </div>
+
+    </main>
+
+    <!-- Application Logic -->
+    <script>
+        // --- 1. CONFIG & UTILS ---
+        const UTILS = {
+            formatCurrency: (value) => {
+                return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
+            },
+            formatPercent: (value) => {
+                return value.toFixed(2) + '%';
+            },
+            generateId: () => '_' + Math.random().toString(36).substr(2, 9),
+            addMonths: (date, months) => {
+                const d = new Date(date);
+                d.setMonth(d.getMonth() + months);
+                return d;
+            }
+        };
+
+        // --- 2. STATE MANAGEMENT ---
+        const State = {
+            data: {
+                branches: [],
+                inflationData: [], // { month: '2023-01', value: 6.0, estimated: false }
+                settings: {
+                    userCostIncrease: 0,
+                    startMonth: '',
+                    endMonth: ''
+                }
+            },
+            
+            load() {
+                const saved = localStorage.getItem('priceIndexAppState');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    // Merge saved settings but keep fresh processed API data implies fetching again usually, 
+                    // but for SPA simplicity we keep user inputs.
+                    this.data.branches = parsed.branches || [];
+                    this.data.settings = parsed.settings || {};
+                }
+            },
+            
+            save() {
+                localStorage.setItem('priceIndexAppState', JSON.stringify({
+                    branches: this.data.branches,
+                    settings: this.data.settings
+                }));
+            }
+        };
+
+        // --- 3. CORE LOGIC ---
+        const Logic = {
+            // Mock API Data Generation (Simulating IPC Argentina pattern)
+            async fetchInflationData() {
+                // Simulating network delay
+                await new Promise(r => setTimeout(r, 600));
+
+                const today = new Date();
+                const data = [];
+                
+                // Generate last 18 months of mock data
+                for (let i = 0; i < 18; i++) {
+                    const d = new Date(today.getFullYear(), today.getMonth() - i - 1, 1); // Previous month as latest known usually
+                    // Randomized mock inflation between 3% and 12%
+                    // We make it slightly deterministic for consistency in demo
+                    const randomVal = (Math.sin(i) * 3 + 7 + Math.random()).toFixed(1);
+                    
+                    data.push({
+                        dateObj: d,
+                        label: d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }),
+                        value: String(d.getMonth()) === String(today.getMonth()) ? null : parseFloat(randomVal), // Current month often missing
+                        isEstimated: false,
+                        iso: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+                    });
+                }
+                
+                // Speculative Calculation: Check if most recent month (previous month relative to now) is missing?
+                // In this mock, index 0 is "last month". Let's simulate we miss it randomly or just rely on API.
+                // Let's force index 0 to be computed if we want to show the feature.
+                // Actually, usually data published mid-month. Let's assume we have data up to index 0.
+                
+                State.data.inflationData = data.sort((a,b) => a.dateObj - b.dateObj); // Sort ascending
+                
+                // Default selection: Last 6 months
+                if (!State.data.settings.endMonth) {
+                    const len = State.data.inflationData.length;
+                    State.data.settings.endMonth = State.data.inflationData[len-1].iso;
+                    State.data.settings.startMonth = State.data.inflationData[Math.max(0, len-4)].iso; // Last 3-4 months
+                }
+            },
+
+            calculateIndex() {
+                const { startMonth, endMonth } = State.data.settings;
+                const { inflationData } = State.data;
+
+                if (!startMonth || !endMonth) return 0;
+
+                // Filter data
+                const startIndex = inflationData.findIndex(d => d.iso === startMonth);
+                const endIndex = inflationData.findIndex(d => d.iso === endMonth);
+                
+                if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) return 0;
+
+                const selectedPeriod = inflationData.slice(startIndex, endIndex + 1);
+                
+                // Compound calculation: ((1 + i1)*(1 + i2)... - 1) * 100
+                let accumulated = 1;
+                selectedPeriod.forEach(item => {
+                    accumulated *= (1 + (item.value / 100));
+                });
+
+                return (accumulated - 1) * 100;
+            },
+
+            getKPIs() {
+                const data = State.data.inflationData;
+                if (data.length === 0) return { annual: 0, quarterly: 0 };
+
+                // Annual (last 12)
+                const last12 = data.slice(-12);
+                let accAnnual = 1;
+                last12.forEach(d => accAnnual *= (1 + d.value/100));
+                
+                // Quarterly Avg (last 3)
+                const last3 = data.slice(-3);
+                const sum3 = last3.reduce((acc, curr) => acc + curr.value, 0);
+
+                return {
+                    annual: (accAnnual - 1) * 100,
+                    quarterly: sum3 / 3
+                };
+            },
+
+            addBranch(name, amount) {
+                State.data.branches.push({
+                    id: UTILS.generateId(),
+                    name,
+                    amount: parseFloat(amount)
+                });
+                State.save();
+                App.render();
+            },
+
+            removeBranch(id) {
+                State.data.branches = State.data.branches.filter(b => b.id !== id);
+                State.save();
+                App.render();
+            }
+        };
+
+        // --- 4. APP CONTROLLER ---
+        const App = {
+            init: async () => {
+                State.load();
+                
+                // Setup UI Events
+                document.getElementById('branch-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const name = document.getElementById('branch-name').value;
+                    const amount = document.getElementById('branch-amount').value;
+                    Logic.addBranch(name, amount);
+                    e.target.reset();
+                    document.getElementById('branch-name').focus();
+                });
+
+                document.getElementById('cost-input').addEventListener('input', (e) => {
+                    State.data.settings.userCostIncrease = parseFloat(e.target.value) || 0;
+                    State.save();
+                    App.updateAnalysis();
+                });
+                
+                document.getElementById('start-month').addEventListener('change', (e) => {
+                    State.data.settings.startMonth = e.target.value;
+                    State.save();
+                    App.render(); // Recalculate
+                });
+                
+                document.getElementById('end-month').addEventListener('change', (e) => {
+                    State.data.settings.endMonth = e.target.value;
+                    State.save();
+                    App.render(); // Recalculate
+                });
+
+                // Init Data
+                await Logic.fetchInflationData();
+                App.populateSelects();
+                
+                // If settings still empty after fetch (first load)
+                if (document.getElementById('start-month').value === '') {
+                     document.getElementById('start-month').value = State.data.settings.startMonth;
+                     document.getElementById('end-month').value = State.data.settings.endMonth;
+                     // Force values into DOM if they weren't matched
+                }
+
+                // Initial Render
+                App.render();
+            },
+
+            populateSelects: () => {
+                const sStart = document.getElementById('start-month');
+                const sEnd = document.getElementById('end-month');
+                sStart.innerHTML = ''; 
+                sEnd.innerHTML = '';
+
+                State.data.inflationData.forEach(item => {
+                    const opt = new Option(`${item.label} (${item.value}%)`, item.iso);
+                    sStart.add(opt.cloneNode(true));
+                    sEnd.add(opt);
+                });
+                
+                // Set values from state
+                sStart.value = State.data.settings.startMonth;
+                sEnd.value = State.data.settings.endMonth;
+            },
+
+            render: () => {
+                const indexRate = Logic.calculateIndex();
+                const kpis = Logic.getKPIs();
+                const costIncrease = State.data.settings.userCostIncrease;
+
+                // Update KPIs
+                document.getElementById('kpi-annual').innerText = UTILS.formatPercent(kpis.annual);
+                document.getElementById('kpi-quarterly').innerText = UTILS.formatPercent(kpis.quarterly);
+                document.getElementById('kpi-custom-period').innerText = UTILS.formatPercent(indexRate);
+                document.getElementById('cost-input').value = costIncrease || '';
+
+                // Update Branches
+                const tbody = document.getElementById('branches-list-body');
+                const empty = document.getElementById('empty-state');
+                tbody.innerHTML = '';
+
+                let totalCurrent = 0;
+                let totalNew = 0;
+
+                if (State.data.branches.length === 0) {
+                    empty.classList.remove('hidden');
+                } else {
+                    empty.classList.add('hidden');
+                    State.data.branches.forEach(branch => {
+                        const newAmount = branch.amount * (1 + (indexRate / 100));
+                        totalCurrent += branch.amount;
+                        totalNew += newAmount;
+
+                        const row = document.createElement('tr');
+                        row.className = 'hover:bg-white/5 transition-colors group';
+                        row.innerHTML = `
+                            <td class="py-3 pl-2 font-medium text-white">${branch.name}</td>
+                            <td class="py-3 text-right text-slate-300">${UTILS.formatCurrency(branch.amount)}</td>
+                            <td class="py-3 text-right text-brand-400 font-mono text-xs">+${UTILS.formatPercent(indexRate)}</td>
+                            <td class="py-3 text-right font-bold text-white shadow-neon-text">${UTILS.formatCurrency(newAmount)}</td>
+                            <td class="py-3 text-center">
+                                <button onclick="Logic.removeBranch('${branch.id}')" class="text-slate-600 hover:text-red-400 transition-colors p-2 text-xs">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+
+                // Update Footer Totals
+                document.getElementById('total-current').innerText = UTILS.formatCurrency(totalCurrent);
+                document.getElementById('total-new').innerText = UTILS.formatCurrency(totalNew);
+
+                // Update History Table
+                const historyBody = document.getElementById('history-table-body');
+                historyBody.innerHTML = '';
+                const last6 = State.data.inflationData.slice(-6).reverse();
+                last6.forEach(item => {
+                    historyBody.innerHTML += `
+                        <tr class="hover:bg-slate-700/50">
+                            <td class="px-4 py-3 font-medium text-white">${item.label}</td>
+                            <td class="px-4 py-3 text-right font-mono ${item.value > 10 ? 'text-red-400' : 'text-emerald-400'}">${item.value}%</td>
+                             <td class="px-4 py-3 text-center">
+                                <span class="bg-blue-500/10 text-blue-400 text-xs px-2 py-0.5 rounded border border-blue-500/20">Oficial</span>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                // Update Validity Legend
+                const validDate = UTILS.addMonths(new Date(), 3);
+                document.getElementById('validity-legend').innerHTML = 
+                    `<i class="fa-solid fa-calendar-check mr-2"></i>Precios sugeridos con validez de 3 meses hasta el 
+                    <strong class="text-brand-400">${validDate.toLocaleDateString('es-ES')}</strong>`;
+
+                // Run Analysis
+                App.updateAnalysis();
+            },
+
+            updateAnalysis: () => {
+                const indexRate = Logic.calculateIndex();
+                const costIncrease = State.data.settings.userCostIncrease;
+                const card = document.getElementById('profit-card');
+                const alertBox = document.getElementById('profit-alert');
+                const successBox = document.getElementById('profit-success');
+                
+                // Logic: Traffic Light
+                if (costIncrease > indexRate) {
+                    // Danger: Costs rising faster than price update
+                    card.classList.remove('border-l-slate-700', 'border-l-emerald-500');
+                    card.classList.add('border-l-red-500');
+                    alertBox.classList.remove('hidden');
+                    successBox.classList.add('hidden');
+                } else if (costIncrease > 0) {
+                    // Good: Price update covers costs
+                    card.classList.remove('border-l-slate-700', 'border-l-red-500');
+                    card.classList.add('border-l-emerald-500');
+                    alertBox.classList.add('hidden');
+                    successBox.classList.remove('hidden');
+                } else {
+                    // Neutral
+                    card.classList.remove('border-l-red-500', 'border-l-emerald-500');
+                    card.classList.add('border-l-slate-700');
+                    alertBox.classList.add('hidden');
+                    successBox.classList.add('hidden');
+                }
+            },
+
+            ui: {
+                toggleHistory: () => {
+                    const el = document.getElementById('history-container');
+                    el.classList.toggle('hidden');
+                }
+            },
+
+            handlers: {
+                resetData: () => {
+                    if (confirm('¿Borrar todas las sucursales y configuraciones?')) {
+                        localStorage.removeItem('priceIndexAppState');
+                        location.reload();
+                    }
+                },
+                exportPDF: () => {
+                   const { jsPDF } = window.jspdf;
+                   const doc = new jsPDF();
+                   
+                   // Brand Colors
+                   const teal = [13, 148, 136];
+                   const dark = [15, 23, 42];
+
+                   // Header
+                   doc.setFillColor(...dark);
+                   doc.rect(0, 0, 210, 40, 'F');
+                   
+                   doc.setTextColor(255, 255, 255);
+                   doc.setFontSize(22);
+                   doc.setFont('helvetica', 'bold');
+                   doc.text("Informe de Indexación de Precios", 14, 20);
+                   
+                   doc.setFontSize(10);
+                   doc.setTextColor(20, 184, 166); // Teal
+                   doc.text(`Generado: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 14, 28);
+
+                   // Info Summary
+                   doc.setTextColor(60, 60, 60);
+                   doc.setFontSize(12);
+                   doc.text(`Período Base: ${State.data.settings.startMonth} a ${State.data.settings.endMonth}`, 14, 50);
+                   doc.text(`Índice Ajuste Aplicado: ${Logic.calculateIndex().toFixed(2)}%`, 14, 58);
+                   
+                   // Table
+                   const headers = [["Sucursal", "Importe Anterior", "Ajuste", "Nuevo Importe"]];
+                   const indexRate = Logic.calculateIndex();
+                   const body = State.data.branches.map(b => [
+                        b.name, 
+                        UTILS.formatCurrency(b.amount), 
+                        `${indexRate.toFixed(2)}%`, 
+                        UTILS.formatCurrency(b.amount * (1 + indexRate/100))
+                   ]);
+
+                   // Total Row
+                   const totalOld = State.data.branches.reduce((a, b) => a + b.amount, 0);
+                   const totalNew = totalOld * (1 + indexRate/100);
+                   body.push(["TOTAL CONSOLIDADO", UTILS.formatCurrency(totalOld), "-", UTILS.formatCurrency(totalNew)]);
+
+                   doc.autoTable({
+                       startY: 65,
+                       head: headers,
+                       body: body,
+                       theme: 'grid',
+                       headStyles: { fillColor: teal, textColor: 255, fontStyle: 'bold' },
+                       footStyles: { fillColor: [240, 240, 240], textColor: dark, fontStyle: 'bold' },
+                       didParseCell: function (data) {
+                           if (data.section === 'body' && data.row.index === body.length - 1) {
+                               data.cell.styles.fontStyle = 'bold';
+                               data.cell.styles.fillColor = [240, 240, 240];
+                           }
+                       }
+                   });
+
+                   // Footer Validity
+                   const finalY = doc.lastAutoTable.finalY || 80;
+                   doc.setFontSize(10);
+                   doc.setTextColor(100);
+                   const validDate = UTILS.addMonths(new Date(), 3).toLocaleDateString();
+                   doc.text(`Nota: Estos valores tienen una vigencia sugerida hasta el ${validDate}.`, 14, finalY + 15);
+
+                   doc.save('reporte_indexacion.pdf');
+                }
+            }
+        };
+
+        // --- INIT ---
+        window.app = App; // Expose for HTML events
+        window.Logic = Logic; // Expose Logic
+        document.addEventListener('DOMContentLoaded', App.init);
+
+    </script>
+</body>
+</html>
