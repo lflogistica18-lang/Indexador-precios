@@ -219,6 +219,21 @@
             <p class="text-white/30 text-xs mt-1">INDEC · datos.gob.ar</p>
         </div>
 
+        <!-- Referencia USD -->
+        <div class="mb-5 p-3 rounded-xl bg-white/10 border border-white/10">
+            <p class="text-xs text-white/40 uppercase font-bold mb-1.5 tracking-wider">Referencia USD</p>
+            <div class="grid grid-cols-2 gap-2 text-center">
+                <div class="bg-teal-900/40 p-2 rounded-lg border border-teal-500/20">
+                    <p class="text-[10px] text-teal-a200 uppercase font-bold leading-none mb-1">Blue</p>
+                    <p id="usd-blue" class="text-sm text-white font-extrabold">--</p>
+                </div>
+                <div class="bg-white/5 p-2 rounded-lg border border-white/5">
+                    <p class="text-[10px] text-white/40 uppercase font-bold leading-none mb-1">Oficial</p>
+                    <p id="usd-oficial" class="text-sm text-white/80 font-bold">--</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Sucursal -->
         <div class="mb-5">
             <p class="text-xs text-white/40 uppercase font-bold mb-2 tracking-wider">Sucursal</p>
@@ -783,6 +798,24 @@
             removeBranch(id) {
                 State.data.branches = State.data.branches.filter(b => b.id !== id);
                 State.save(); App.render();
+            },
+
+            async fetchDollarData() {
+                try {
+                    const [resBlue, resOficial] = await Promise.all([
+                        fetch('https://dolarapi.com/v1/dolares/blue'),
+                        fetch('https://dolarapi.com/v1/dolares/oficial')
+                    ]);
+                    const blue = await resBlue.json();
+                    const oficial = await resOficial.json();
+                    
+                    document.getElementById('usd-blue').textContent = UTILS.fmtCurrency(blue.venta);
+                    document.getElementById('usd-oficial').textContent = UTILS.fmtCurrency(oficial.venta);
+                } catch (e) {
+                    console.error('[Dollar API Error]', e);
+                    document.getElementById('usd-blue').textContent = 'Error';
+                    document.getElementById('usd-oficial').textContent = 'Error';
+                }
             }
         };
 
@@ -817,6 +850,7 @@
                 document.getElementById('chart-interanual').addEventListener('change', App.renderChart);
 
                 await Logic.fetchInflationData();
+                await Logic.fetchDollarData();
                 App.populateSelects();
                 App.render();
             },
